@@ -1,0 +1,62 @@
+/* 
+ * Custom styles for Quotation System
+ * Path: css/styles.css
+ */
+
+ body {
+    background-color: #f8f9fa;
+    padding-bottom: 60px;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* Style for quotation status badges */
+.badge {
+    font-size: 0.8rem;
+    padding: 0.4em 0.6em;
+}
+
+/* Print styles for quotation view */
+@media print {
+    .navbar, footer, .btn, .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .card-header {
+        background-color: transparent !important;
+        border-bottom: 1px solid #000 !important;
+    }
+    
+    body {
+        padding: 0;
+        margin: 0;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+}
