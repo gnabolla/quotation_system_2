@@ -83,7 +83,7 @@ include_once '../includes/header.php';
                                     <a href="view.php?id=<?php echo $row['receipt_id']; ?>" class="btn btn-info btn-sm">View</a>
                                     <a href="edit.php?id=<?php echo $row['receipt_id']; ?>" class="btn btn-warning btn-sm">Edit</a>
                                     <a href="delete.php?id=<?php echo $row['receipt_id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this delivery receipt?')">Delete</a>
-                                    <a href="view.php?id=<?php echo $row['receipt_id']; ?>" class="btn btn-primary btn-sm" onclick="window.open(this.href, '_blank'); return false;">Print</a>
+                                    <a href="generate_pdf.php?id=<?php echo $row['receipt_id']; ?>" class="btn btn-primary btn-sm" target="_blank">PDF</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>

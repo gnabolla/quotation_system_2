@@ -1,6 +1,6 @@
 <?php
 /**
- * View delivery receipt (optimized for A4 printing)
+ * View delivery receipt
  * Path: delivery/view.php
  */
 
@@ -43,24 +43,18 @@ include_once '../includes/header.php';
 ?>
 
 <div class="container mt-4">
-    <!-- Screen-only buttons (not visible when printing) -->
-    <div class="row mb-3 d-print-none">
+    <!-- Action buttons -->
+    <div class="row mb-3">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center">
                 <h2>Delivery Receipt #<?php echo $delivery->receipt_id; ?></h2>
                 <div>
                     <a href="../quotation/view.php?id=<?php echo $delivery->quotation_id; ?>" class="btn btn-secondary">Back to Quotation</a>
                     <a href="edit.php?id=<?php echo $delivery->receipt_id; ?>" class="btn btn-warning">Edit</a>
-                    <button onclick="window.print();" class="btn btn-primary">Print Receipt</button>
+                    <a href="generate_pdf.php?id=<?php echo $delivery->receipt_id; ?>" class="btn btn-primary" target="_blank">Generate PDF</a>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Print-specific header (only visible when printing) -->
-    <div class="d-none d-print-block delivery-receipt-header">
-        <h1>DELIVERY RECEIPT</h1>
-        <p>Quotation #<?php echo $delivery->quotation_id; ?></p>
     </div>
 
     <!-- Delivery details -->
@@ -151,7 +145,7 @@ include_once '../includes/header.php';
                         ?>
                             <tr>
                                 <td><?php echo $counter++; ?></td>
-                                <td class="description-cell"><?php echo htmlspecialchars($item['description']); ?></td>
+                                <td><?php echo htmlspecialchars($item['description']); ?></td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td><?php echo number_format((int)$item['quantity_delivered']); ?></td>
                                 <td class="text-end"><?php echo number_format($unit_price, 2); ?></td>
@@ -159,18 +153,6 @@ include_once '../includes/header.php';
                                 <td></td>
                             </tr>
                         <?php endforeach; ?>
-                            <!-- Add empty rows to ensure consistent appearance -->
-                            <?php for($i = count($delivery->items); $i < 8; $i++): ?>
-                            <tr>
-                                <td><?php echo $i + 1; ?></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <?php endfor; ?>
                             <!-- Grand Total row -->
                             <tr>
                                 <td colspan="5" class="text-end"><strong>Grand Total:</strong></td>
@@ -178,17 +160,9 @@ include_once '../includes/header.php';
                                 <td></td>
                             </tr>
                         <?php else: ?>
-                            <?php for($i = 0; $i < 9; $i++): ?>
                             <tr>
-                                <td><?php echo $i + 1; ?></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
+                                <td colspan="7" class="text-center">No items found</td>
                             </tr>
-                            <?php endfor; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -197,7 +171,7 @@ include_once '../includes/header.php';
     </div>
 
     <!-- Signature section -->
-    <div class="d-print-none card mb-3">
+    <div class="card mb-3">
         <div class="card-header">
             <h4 class="m-0">Recipient Signature</h4>
         </div>
@@ -231,32 +205,10 @@ include_once '../includes/header.php';
             <?php endif; ?>
         </div>
     </div>
-
-    <!-- Confirmation section (optimized for printing) -->
-    <div class="confirmation-section d-print-block mb-3">
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Received by:</strong></p>
-                <div class="signature-space">
-                    <p class="signature-name"><?php echo htmlspecialchars($delivery->recipient_name); ?></p>
-                    <p class="signature-position"><?php echo htmlspecialchars($delivery->recipient_position); ?></p>
-                    <p class="signature-date">Date: <?php echo date('m/d/Y', strtotime($delivery->delivery_date)); ?></p>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Delivered by:</strong></p>
-                <div class="signature-space">
-                    <p class="signature-name">&nbsp;</p>
-                    <p class="signature-position">Authorized Representative</p>
-                    <p class="signature-date">Date: <?php echo date('m/d/Y', strtotime($delivery->delivery_date)); ?></p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- JavaScript for signature pad (d-print-none) -->
-<script class="d-print-none">
+<!-- JavaScript for signature pad -->
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     // Only initialize if canvas exists
     const canvas = document.getElementById('signatureCanvas');
