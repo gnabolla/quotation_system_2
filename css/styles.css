@@ -1,62 +1,168 @@
-/* 
- * Custom styles for Quotation System
- * Path: css/styles.css
- */
-
- body {
-    background-color: #f8f9fa;
-    padding-bottom: 60px;
-}
-
-.form-label {
-    font-weight: 500;
-}
-
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    margin-bottom: 1.5rem;
-}
-
-.card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.table th {
-    background-color: #f8f9fa;
-}
-
-/* Style for quotation status badges */
-.badge {
-    font-size: 0.8rem;
-    padding: 0.4em 0.6em;
-}
-
-/* Print styles for quotation view */
+/* Print styles for A4 portrait delivery receipt */
 @media print {
-    .navbar, footer, .btn, .no-print {
-        display: none !important;
+
+    /* Basic page setup for A4 */
+    @page {
+        size: A4 portrait;
+        margin: 10mm 15mm;
+        /* Minimal margins for more content space */
     }
-    
-    .card {
-        border: none !important;
-        box-shadow: none !important;
-    }
-    
-    .card-header {
-        background-color: transparent !important;
-        border-bottom: 1px solid #000 !important;
-    }
-    
+
+    /* General print styles */
     body {
         padding: 0;
         margin: 0;
+        font-size: 10pt;
+        /* Reduce base font size for printing */
     }
-    
+
+    .navbar,
+    footer,
+    .btn,
+    .no-print {
+        display: none !important;
+    }
+
+    /* Container and card adjustments */
     .container {
-        width: 100%;
-        max-width: 100%;
-        padding: 0;
-        margin: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        margin-bottom: 10px !important;
+        /* Reduce margin between cards */
+    }
+
+    .card-header {
+        background-color: transparent !important;
+        border-bottom: 1px solid #000 !important;
+        padding: 5px 0 !important;
+        /* Reduce padding */
+    }
+
+    .card-body {
+        padding: 5px 0 !important;
+        /* Reduce padding */
+    }
+
+    /* Header formatting */
+    .delivery-receipt-header {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .delivery-receipt-header h1 {
+        font-size: 16pt;
+        margin-bottom: 0;
+        font-weight: bold;
+    }
+
+    /* Table adjustments */
+    .table {
+        font-size: 9pt !important;
+        /* Smaller text for tables */
+        margin-bottom: 10px !important;
+    }
+
+    .table th,
+    .table td {
+        padding: 3px 5px !important;
+        /* Smaller cell padding */
+    }
+
+    /* Signature areas */
+    .delivery-signature-area {
+        margin-top: 15px !important;
+        border-top: 1px solid #000 !important;
+        padding-top: 5px !important;
+    }
+
+    .signature-box {
+        min-height: 40px !important;
+        /* Smaller signature area */
+        margin-bottom: 5px !important;
+    }
+
+    /* Hide elements not needed in print */
+    #signatureCanvas,
+    .d-print-none {
+        display: none !important;
+    }
+
+    /* Confirmation section */
+    .confirmation-section {
+        margin-top: 10px !important;
+        page-break-inside: avoid !important;
+        /* Keep confirmation section together */
+    }
+
+    .confirmation-section .row>div {
+        padding: 0 10px !important;
+    }
+
+    .signature-space {
+        margin-top: 60px;
+        /* More space for signature */
+        padding-top: 5px;
+    }
+
+    /* Print styles specific to signature */
+    @media print {
+        .signature-space {
+            margin-top: 40px !important;
+            /* Adjusted for print */
+        }
+
+        .signature-name {
+            margin-bottom: 0 !important;
+            font-size: 9pt !important;
+            min-height: 14pt !important;
+            /* Space for name */
+        }
+
+        .signature-position {
+            margin-bottom: 0 !important;
+            font-size: 8pt !important;
+        }
+
+        .signature-date {
+            font-size: 8pt !important;
+        }
+    }
+
+    /* Ensure no page breaks inside elements */
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    table,
+    tr {
+        page-break-inside: avoid !important;
+    }
+
+    /* More compact rows */
+    .row {
+        margin-left: -5px !important;
+        margin-right: -5px !important;
+    }
+
+    .col-md-6,
+    .col-md-12 {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    /* Description field limitations to prevent overflow */
+    .description-cell {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
