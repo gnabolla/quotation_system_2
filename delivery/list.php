@@ -7,6 +7,7 @@
 // Include database and object files
 require_once '../config/db_connection.php';
 require_once '../models/DeliveryReceipt.php';
+require_once '../models/Quotation.php';
 
 // Get database connection
 $database = new Database();
@@ -18,11 +19,19 @@ $delivery = new DeliveryReceipt($db);
 // Get quotation ID from URL if exists
 $quotation_id = isset($_GET['quotation_id']) ? $_GET['quotation_id'] : null;
 
+// If quotation_id is provided, get quotation details
+$quotation = null;
+if ($quotation_id) {
+    $quotation = new Quotation($db);
+    $quotation->quotation_id = $quotation_id;
+    $quotation->readOne();
+}
+
 // Query deliveries
 if ($quotation_id) {
     $delivery->quotation_id = $quotation_id;
     $stmt = $delivery->readByQuotationId();
-    $page_title = "Delivery Receipts for Quotation #" . $quotation_id;
+    $page_title = "Delivery Receipts for " . ($quotation->quotation_number ?? "Quotation #" . $quotation_id);
 } else {
     $stmt = $delivery->readAll();
     $page_title = "All Delivery Receipts";
@@ -53,8 +62,8 @@ include_once '../includes/header.php';
                 <table class="table table-bordered table-striped">
                     <thead>
                         <tr>
-                            <th>Receipt ID</th>
-                            <th>Quotation ID</th>
+                            <th>Receipt Number</th>
+                            <th>Quotation Number</th>
                             <th>Recipient</th>
                             <th>Delivery Date</th>
                             <th>Status</th>
@@ -62,14 +71,25 @@ include_once '../includes/header.php';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php while ($row = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
+                        <?php while ($row = $stmt->fetch(PDO::FETCH_ASSOC)): 
+                            // Get quotation number if needed
+                            $quotationNumber = "";
+                            if (!$quotation_id && isset($row['quotation_id'])) {
+                                $tempQuot = new Quotation($db);
+                                $tempQuot->quotation_id = $row['quotation_id'];
+                                $tempQuot->readOne();
+                                $quotationNumber = $tempQuot->quotation_number;
+                            } elseif ($quotation) {
+                                $quotationNumber = $quotation->quotation_number;
+                            }
+                        ?>
                             <tr>
-                                <td><?php echo $row['receipt_id']; ?></td>
+                                <td><?php echo $row['receipt_number'] ?? 'DR-'.str_pad($row['receipt_id'], 3, '0', STR_PAD_LEFT); ?></td>
                                 <td><a href="../quotation/view.php?id=<?php echo $row['quotation_id']; ?>">
-                                    #<?php echo $row['quotation_id']; ?>
+                                    <?php echo $quotationNumber; ?>
                                 </a></td>
                                 <td><?php echo htmlspecialchars($row['recipient_name']); ?></td>
-                                <td><?php echo $row['delivery_date']; ?></td>
+                                <td><?php echo date('M d, Y', strtotime($row['delivery_date'])); ?></td>
                                 <td>
                                     <span class="badge <?php 
                                         echo ($row['delivery_status'] == 'pending') ? 'bg-warning' : 

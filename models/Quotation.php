@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/QuotationItem.php';
+require_once __DIR__ . '/DocumentNumbering.php';
 
 class Quotation {
     // Database connection and table name
@@ -14,9 +15,13 @@ class Quotation {
 
     // Object properties
     public $quotation_id;
+    public $quotation_number;
     public $customer_name;
     public $customer_email;
     public $customer_phone;
+    public $agency_name;     // New field
+    public $agency_address;  // New field
+    public $contact_person;  // New field
     public $quotation_date;
     public $valid_until;
     public $status;
@@ -35,27 +40,45 @@ class Quotation {
         try {
             // Begin transaction
             $this->conn->beginTransaction();
+            
+            // Generate quotation number if not provided
+            if (empty($this->quotation_number)) {
+                $numbering = new DocumentNumbering($this->conn);
+                $this->quotation_number = $numbering->generateQuotationNumber();
+            }
 
             // Insert query for quotation
             $query = "INSERT INTO " . $this->table_name . "
-                    (customer_name, customer_email, customer_phone, quotation_date, valid_until, status, notes)
+                    (quotation_number, customer_name, customer_email, customer_phone, 
+                     agency_name, agency_address, contact_person,
+                     quotation_date, valid_until, status, notes)
                     VALUES
-                    (:customer_name, :customer_email, :customer_phone, :quotation_date, :valid_until, :status, :notes)";
+                    (:quotation_number, :customer_name, :customer_email, :customer_phone, 
+                     :agency_name, :agency_address, :contact_person,
+                     :quotation_date, :valid_until, :status, :notes)";
 
             // Prepare statement
             $stmt = $this->conn->prepare($query);
 
             // Sanitize data
+            $this->quotation_number = htmlspecialchars(strip_tags($this->quotation_number));
             $this->customer_name = htmlspecialchars(strip_tags($this->customer_name));
             $this->customer_email = htmlspecialchars(strip_tags($this->customer_email));
             $this->customer_phone = htmlspecialchars(strip_tags($this->customer_phone));
+            $this->agency_name = htmlspecialchars(strip_tags($this->agency_name));
+            $this->agency_address = htmlspecialchars(strip_tags($this->agency_address));
+            $this->contact_person = htmlspecialchars(strip_tags($this->contact_person));
             $this->status = htmlspecialchars(strip_tags($this->status));
             $this->notes = htmlspecialchars(strip_tags($this->notes));
 
             // Bind values
+            $stmt->bindParam(":quotation_number", $this->quotation_number);
             $stmt->bindParam(":customer_name", $this->customer_name);
             $stmt->bindParam(":customer_email", $this->customer_email);
             $stmt->bindParam(":customer_phone", $this->customer_phone);
+            $stmt->bindParam(":agency_name", $this->agency_name);
+            $stmt->bindParam(":agency_address", $this->agency_address);
+            $stmt->bindParam(":contact_person", $this->contact_person);
             $stmt->bindParam(":quotation_date", $this->quotation_date);
             $stmt->bindParam(":valid_until", $this->valid_until);
             $stmt->bindParam(":status", $this->status);
@@ -116,13 +139,24 @@ class Quotation {
     // Read single quotation
     public function readOne() {
         // Query to read single record
-        $query = "SELECT * FROM " . $this->table_name . " WHERE quotation_id = :quotation_id LIMIT 0,1";
+        $query = "SELECT * FROM " . $this->table_name . " WHERE ";
+        
+        // Check if we're using ID or quotation number
+        if (isset($this->quotation_id) && !empty($this->quotation_id)) {
+            $query .= "quotation_id = :id LIMIT 0,1";
+            $param_name = ":id";
+            $param_value = $this->quotation_id;
+        } else {
+            $query .= "quotation_number = :number LIMIT 0,1";
+            $param_name = ":number";
+            $param_value = $this->quotation_number;
+        }
 
         // Prepare statement
         $stmt = $this->conn->prepare($query);
 
-        // Bind ID of product to be updated
-        $stmt->bindParam(":quotation_id", $this->quotation_id);
+        // Bind parameter
+        $stmt->bindParam($param_name, $param_value);
 
         // Execute query
         $stmt->execute();
@@ -132,9 +166,14 @@ class Quotation {
 
         // Set values to object properties
         if ($row) {
+            $this->quotation_id = $row['quotation_id'];
+            $this->quotation_number = $row['quotation_number'];
             $this->customer_name = $row['customer_name'];
             $this->customer_email = $row['customer_email'];
             $this->customer_phone = $row['customer_phone'];
+            $this->agency_name = $row['agency_name'] ?? '';
+            $this->agency_address = $row['agency_address'] ?? '';
+            $this->contact_person = $row['contact_person'] ?? '';
             $this->quotation_date = $row['quotation_date'];
             $this->valid_until = $row['valid_until'];
             $this->status = $row['status'];
@@ -165,6 +204,9 @@ class Quotation {
                         customer_name = :customer_name,
                         customer_email = :customer_email,
                         customer_phone = :customer_phone,
+                        agency_name = :agency_name,
+                        agency_address = :agency_address,
+                        contact_person = :contact_person,
                         quotation_date = :quotation_date,
                         valid_until = :valid_until,
                         status = :status,
@@ -179,6 +221,9 @@ class Quotation {
             $this->customer_name = htmlspecialchars(strip_tags($this->customer_name));
             $this->customer_email = htmlspecialchars(strip_tags($this->customer_email));
             $this->customer_phone = htmlspecialchars(strip_tags($this->customer_phone));
+            $this->agency_name = htmlspecialchars(strip_tags($this->agency_name));
+            $this->agency_address = htmlspecialchars(strip_tags($this->agency_address));
+            $this->contact_person = htmlspecialchars(strip_tags($this->contact_person));
             $this->status = htmlspecialchars(strip_tags($this->status));
             $this->notes = htmlspecialchars(strip_tags($this->notes));
             $this->quotation_id = htmlspecialchars(strip_tags($this->quotation_id));
@@ -187,6 +232,9 @@ class Quotation {
             $stmt->bindParam(":customer_name", $this->customer_name);
             $stmt->bindParam(":customer_email", $this->customer_email);
             $stmt->bindParam(":customer_phone", $this->customer_phone);
+            $stmt->bindParam(":agency_name", $this->agency_name);
+            $stmt->bindParam(":agency_address", $this->agency_address);
+            $stmt->bindParam(":contact_person", $this->contact_person);
             $stmt->bindParam(":quotation_date", $this->quotation_date);
             $stmt->bindParam(":valid_until", $this->valid_until);
             $stmt->bindParam(":status", $this->status);
@@ -271,8 +319,8 @@ class Quotation {
             $this->readOne();
         }
 
-        // File name
-        $filename = 'quotation_' . $this->quotation_id . '_' . date('Y-m-d') . '.csv';
+        // File name using quotation number
+        $filename = $this->quotation_number . '_' . date('Y-m-d') . '.csv';
         
         // Open output stream
         $output = fopen('php://output', 'w');
@@ -280,6 +328,14 @@ class Quotation {
         // Set headers
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=' . $filename);
+        
+        // Add quotation header information
+        fputcsv($output, [$this->quotation_number]);
+        fputcsv($output, ['Customer:', $this->customer_name]);
+        fputcsv($output, ['Agency:', $this->agency_name]);
+        fputcsv($output, ['Date:', $this->quotation_date]);
+        fputcsv($output, ['Valid Until:', $this->valid_until]);
+        fputcsv($output, []);  // Empty row for spacing
         
         // CSV header row
         fputcsv($output, ['Item No', 'Qty', 'Unit', 'Description', 'Original Price', 'Markup (%)', 'Unit Price', 'Total Amount']);
@@ -304,14 +360,6 @@ class Quotation {
         // Close output stream
         fclose($output);
         
-        return true;
-    }
-    
-    // Export quotation as Excel
-    public function exportExcel() {
-        // For Excel export, you would typically use PHPSpreadsheet or similar library
-        // This is a placeholder for that functionality
-        echo "Excel export would be implemented here";
         return true;
     }
 }

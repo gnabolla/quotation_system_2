@@ -8,6 +8,7 @@
 require_once '../config/db_connection.php';
 require_once '../models/Quotation.php';
 require_once '../models/DeliveryReceipt.php';
+require_once '../models/DocumentNumbering.php';
 
 // Get database connection
 $database = new Database();
@@ -30,9 +31,14 @@ if (!$quotation->readOne()) {
 // Initialize DeliveryReceipt object
 $delivery = new DeliveryReceipt($db);
 
+// Generate a new receipt number
+$numbering = new DocumentNumbering($db);
+$receipt_number = $numbering->generateDeliveryReceiptNumber();
+
 // Process form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Set delivery receipt property values
+    $delivery->receipt_number = $receipt_number;
     $delivery->quotation_id = $quotation_id;
     $delivery->delivery_date = $_POST['delivery_date'];
     $delivery->recipient_name = $_POST['recipient_name'];
@@ -68,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Page title
-$page_title = "Create Delivery Receipt for Quotation #" . $quotation_id;
+$page_title = "Create Delivery Receipt for Quotation " . $quotation->quotation_number;
 
 // Include header
 include_once '../includes/header.php';
@@ -78,7 +84,7 @@ include_once '../includes/header.php';
     <div class="row">
         <div class="col-md-12">
             <h2>Create Delivery Receipt</h2>
-            <p>For Quotation #<?php echo $quotation_id; ?> - <?php echo htmlspecialchars($quotation->customer_name); ?></p>
+            <p>For Quotation <strong><?php echo $quotation->quotation_number; ?></strong> - <?php echo htmlspecialchars($quotation->customer_name); ?></p>
             
             <?php if (isset($error_message)): ?>
                 <div class="alert alert-danger"><?php echo $error_message; ?></div>
@@ -93,9 +99,15 @@ include_once '../includes/header.php';
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
+                                <label for="receipt_number" class="form-label">Receipt Number</label>
+                                <input type="text" class="form-control" id="receipt_number" name="receipt_number" value="<?php echo $receipt_number; ?>" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
                                 <label for="delivery_date" class="form-label">Delivery Date</label>
                                 <input type="date" class="form-control" id="delivery_date" name="delivery_date" value="<?php echo date('Y-m-d'); ?>" required>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="delivery_status" class="form-label">Delivery Status</label>
                                 <select class="form-select" id="delivery_status" name="delivery_status" required>
@@ -105,20 +117,20 @@ include_once '../includes/header.php';
                                     <option value="cancelled">Cancelled</option>
                                 </select>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="delivery_address" class="form-label">Delivery Address</label>
+                                <textarea class="form-control" id="delivery_address" name="delivery_address" rows="2" required><?php echo htmlspecialchars($quotation->agency_address ?? ''); ?></textarea>
+                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="recipient_name" class="form-label">Recipient Name</label>
-                                <input type="text" class="form-control" id="recipient_name" name="recipient_name" required>
+                                <input type="text" class="form-control" id="recipient_name" name="recipient_name" value="<?php echo htmlspecialchars($quotation->contact_person ?? ''); ?>" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="recipient_position" class="form-label">Recipient Position</label>
                                 <input type="text" class="form-control" id="recipient_position" name="recipient_position">
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="delivery_address" class="form-label">Delivery Address</label>
-                            <textarea class="form-control" id="delivery_address" name="delivery_address" rows="3" required></textarea>
                         </div>
                         <div class="mb-3">
                             <label for="delivery_notes" class="form-label">Delivery Notes</label>

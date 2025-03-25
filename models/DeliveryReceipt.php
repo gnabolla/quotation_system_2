@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/Quotation.php';
+require_once __DIR__ . '/DocumentNumbering.php';
 
 class DeliveryReceipt {
     // Database connection and table name
@@ -15,6 +16,7 @@ class DeliveryReceipt {
 
     // Object properties
     public $receipt_id;
+    public $receipt_number;
     public $quotation_id;
     public $delivery_date;
     public $recipient_name;
@@ -41,19 +43,26 @@ class DeliveryReceipt {
         try {
             // Begin transaction
             $this->conn->beginTransaction();
+            
+            // Generate receipt number if not provided
+            if (empty($this->receipt_number)) {
+                $numbering = new DocumentNumbering($this->conn);
+                $this->receipt_number = $numbering->generateDeliveryReceiptNumber();
+            }
 
             // Insert query for delivery receipt
             $query = "INSERT INTO " . $this->table_name . "
-                    (quotation_id, delivery_date, recipient_name, recipient_position, 
+                    (receipt_number, quotation_id, delivery_date, recipient_name, recipient_position, 
                      delivery_address, delivery_notes, delivery_status)
                     VALUES
-                    (:quotation_id, :delivery_date, :recipient_name, :recipient_position, 
+                    (:receipt_number, :quotation_id, :delivery_date, :recipient_name, :recipient_position, 
                      :delivery_address, :delivery_notes, :delivery_status)";
 
             // Prepare statement
             $stmt = $this->conn->prepare($query);
 
             // Sanitize data
+            $this->receipt_number = htmlspecialchars(strip_tags($this->receipt_number));
             $this->quotation_id = htmlspecialchars(strip_tags($this->quotation_id));
             $this->recipient_name = htmlspecialchars(strip_tags($this->recipient_name));
             $this->recipient_position = htmlspecialchars(strip_tags($this->recipient_position));
@@ -62,6 +71,7 @@ class DeliveryReceipt {
             $this->delivery_status = htmlspecialchars(strip_tags($this->delivery_status));
 
             // Bind values
+            $stmt->bindParam(":receipt_number", $this->receipt_number);
             $stmt->bindParam(":quotation_id", $this->quotation_id);
             $stmt->bindParam(":delivery_date", $this->delivery_date);
             $stmt->bindParam(":recipient_name", $this->recipient_name);
@@ -145,15 +155,24 @@ class DeliveryReceipt {
     // Read single delivery receipt
     public function readOne() {
         // Query to read single record
-        $query = "SELECT * FROM " . $this->table_name . " 
-                  WHERE receipt_id = :receipt_id 
-                  LIMIT 0,1";
+        $query = "SELECT * FROM " . $this->table_name . " WHERE ";
+        
+        // Check if we're using ID or receipt number
+        if (isset($this->receipt_id) && !empty($this->receipt_id)) {
+            $query .= "receipt_id = :id LIMIT 0,1";
+            $param_name = ":id";
+            $param_value = $this->receipt_id;
+        } else {
+            $query .= "receipt_number = :number LIMIT 0,1";
+            $param_name = ":number";
+            $param_value = $this->receipt_number;
+        }
 
         // Prepare statement
         $stmt = $this->conn->prepare($query);
 
-        // Bind ID
-        $stmt->bindParam(":receipt_id", $this->receipt_id);
+        // Bind parameter
+        $stmt->bindParam($param_name, $param_value);
 
         // Execute query
         $stmt->execute();
@@ -163,6 +182,8 @@ class DeliveryReceipt {
 
         // Set values to object properties
         if ($row) {
+            $this->receipt_id = $row['receipt_id'];
+            $this->receipt_number = $row['receipt_number'];
             $this->quotation_id = $row['quotation_id'];
             $this->delivery_date = $row['delivery_date'];
             $this->recipient_name = $row['recipient_name'];

@@ -38,8 +38,9 @@ include_once '../includes/header.php';
                 <table class="table table-bordered table-striped">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>Quotation Number</th>
                             <th>Customer</th>
+                            <th>Agency</th>
                             <th>Date</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -48,9 +49,10 @@ include_once '../includes/header.php';
                     <tbody>
                         <?php while ($row = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
                             <tr>
-                                <td><?php echo $row['quotation_id']; ?></td>
-                                <td><?php echo $row['customer_name']; ?></td>
-                                <td><?php echo $row['quotation_date']; ?></td>
+                                <td><?php echo $row['quotation_number'] ?? 'QUO-'.str_pad($row['quotation_id'], 3, '0', STR_PAD_LEFT); ?></td>
+                                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['agency_name'] ?? 'N/A'); ?></td>
+                                <td><?php echo date('M d, Y', strtotime($row['quotation_date'])); ?></td>
                                 <td>
                                     <span class="badge <?php 
                                         echo ($row['status'] == 'draft') ? 'bg-secondary' : 
@@ -64,7 +66,7 @@ include_once '../includes/header.php';
                                     <a href="view.php?id=<?php echo $row['quotation_id']; ?>" class="btn btn-info btn-sm">View</a>
                                     <a href="edit.php?id=<?php echo $row['quotation_id']; ?>" class="btn btn-warning btn-sm">Edit</a>
                                     <a href="delete.php?id=<?php echo $row['quotation_id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this quotation?')">Delete</a>
-                                    <a href="export.php?id=<?php echo $row['quotation_id']; ?>&type=csv" class="btn btn-secondary btn-sm">Export CSV</a>
+                                    <a href="export.php?id=<?php echo $row['quotation_id']; ?>&type=csv" class="btn btn-secondary btn-sm">Export</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -80,4 +82,3 @@ include_once '../includes/header.php';
 <?php
 // Include footer
 include_once '../includes/footer.php';
-?>
