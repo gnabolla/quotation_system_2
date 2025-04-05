@@ -1,66 +1,56 @@
 <?php
-/**
- * Quotation model class for CRUD operations
- * Path: models/Quotation.php
- */
-
+// File: models/Quotation.php
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/QuotationItem.php';
 require_once __DIR__ . '/DocumentNumbering.php';
 
 class Quotation {
-    // Database connection and table name
     private $conn;
     private $table_name = "quotations";
 
-    // Object properties
+    // Properties
     public $quotation_id;
     public $quotation_number;
     public $customer_name;
     public $customer_email;
     public $customer_phone;
-    public $agency_name;     // New field
-    public $agency_address;  // New field
-    public $contact_person;  // New field
+    public $agency_name;
+    public $agency_address;
+    public $contact_person;
     public $quotation_date;
     public $valid_until;
     public $status;
     public $notes;
     public $created_at;
     public $updated_at;
-    public $items = [];
+    public $items = []; // Holds items for a single quotation instance
 
-    // Constructor with database connection
     public function __construct($db) {
         $this->conn = $db;
     }
 
-    // Create quotation
     public function create() {
         try {
-            // Begin transaction
             $this->conn->beginTransaction();
-            
+
             // Generate quotation number if not provided
             if (empty($this->quotation_number)) {
                 $numbering = new DocumentNumbering($this->conn);
                 $this->quotation_number = $numbering->generateQuotationNumber();
             }
 
-            // Insert query for quotation
             $query = "INSERT INTO " . $this->table_name . "
-                    (quotation_number, customer_name, customer_email, customer_phone, 
+                    (quotation_number, customer_name, customer_email, customer_phone,
                      agency_name, agency_address, contact_person,
                      quotation_date, valid_until, status, notes)
                     VALUES
-                    (:quotation_number, :customer_name, :customer_email, :customer_phone, 
+                    (:quotation_number, :customer_name, :customer_email, :customer_phone,
                      :agency_name, :agency_address, :contact_person,
                      :quotation_date, :valid_until, :status, :notes)";
 
-            // Prepare statement
             $stmt = $this->conn->prepare($query);
 
-            // Sanitize data
+            // Sanitize
             $this->quotation_number = htmlspecialchars(strip_tags($this->quotation_number));
             $this->customer_name = htmlspecialchars(strip_tags($this->customer_name));
             $this->customer_email = htmlspecialchars(strip_tags($this->customer_email));
@@ -84,15 +74,11 @@ class Quotation {
             $stmt->bindParam(":status", $this->status);
             $stmt->bindParam(":notes", $this->notes);
 
-            // Execute query
             $stmt->execute();
-
-            // Get last inserted ID
             $this->quotation_id = $this->conn->lastInsertId();
 
-            // Create quotation items
+            // Insert items
             $item = new QuotationItem($this->conn);
-            
             foreach ($this->items as $quotation_item) {
                 $item->quotation_id = $this->quotation_id;
                 $item->item_no = $quotation_item['item_no'];
@@ -103,75 +89,85 @@ class Quotation {
                 $item->markup_percentage = $quotation_item['markup_percentage'];
                 $item->unit_price = $quotation_item['unit_price'];
                 $item->total_amount = $quotation_item['total_amount'];
-                
                 if (!$item->create()) {
-                    // If item creation fails, roll back transaction
                     $this->conn->rollBack();
+                    error_log("Failed to create quotation item: " . print_r($item, true));
                     return false;
                 }
             }
 
-            // Commit transaction
             $this->conn->commit();
             return true;
+
         } catch (Exception $e) {
-            // Roll back transaction on error
             $this->conn->rollBack();
-            echo "Error: " . $e->getMessage();
+            error_log("Quotation creation error: " . $e->getMessage());
+            echo "Error: " . $e->getMessage(); // Keep for debugging if needed
             return false;
         }
     }
 
-    // Read all quotations
-    public function readAll() {
-        // Select all query
-        $query = "SELECT * FROM " . $this->table_name . " ORDER BY created_at DESC";
+    // MODIFIED: readAll to include net income calculation and status filter
+    public function readAll($statusFilter = null) {
+        $query = "SELECT
+                    q.quotation_id, q.quotation_number, q.customer_name, q.agency_name,
+                    q.quotation_date, q.status, q.created_at,
+                    COALESCE(SUM(qi.total_amount), 0) AS calculated_grand_total,
+                    COALESCE(SUM(qi.original_price * qi.quantity), 0) AS calculated_original_cost,
+                    (COALESCE(SUM(qi.total_amount), 0) - COALESCE(SUM(qi.original_price * qi.quantity), 0)) AS net_income
+                  FROM
+                    " . $this->table_name . " q
+                  LEFT JOIN
+                    quotation_items qi ON q.quotation_id = qi.quotation_id";
 
-        // Prepare statement
+        // Add status filter if provided and not 'all'
+        if ($statusFilter && $statusFilter !== 'all') {
+            $query .= " WHERE q.status = :status";
+        }
+
+        $query .= " GROUP BY q.quotation_id
+                    ORDER BY q.created_at DESC";
+
         $stmt = $this->conn->prepare($query);
 
-        // Execute query
-        $stmt->execute();
+        // Bind status filter if needed
+        if ($statusFilter && $statusFilter !== 'all') {
+            $stmt->bindParam(":status", $statusFilter);
+        }
 
+        $stmt->execute();
         return $stmt;
     }
 
-    // Read single quotation
+
     public function readOne() {
-        // Query to read single record
         $query = "SELECT * FROM " . $this->table_name . " WHERE ";
-        
-        // Check if we're using ID or quotation number
+
         if (isset($this->quotation_id) && !empty($this->quotation_id)) {
             $query .= "quotation_id = :id LIMIT 0,1";
             $param_name = ":id";
             $param_value = $this->quotation_id;
-        } else {
+        } elseif (isset($this->quotation_number) && !empty($this->quotation_number)) {
             $query .= "quotation_number = :number LIMIT 0,1";
             $param_name = ":number";
             $param_value = $this->quotation_number;
+        } else {
+             error_log("readOne called without quotation_id or quotation_number.");
+             return false; // Cannot proceed without an identifier
         }
 
-        // Prepare statement
         $stmt = $this->conn->prepare($query);
-
-        // Bind parameter
         $stmt->bindParam($param_name, $param_value);
-
-        // Execute query
         $stmt->execute();
-
-        // Get retrieved row
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Set values to object properties
         if ($row) {
             $this->quotation_id = $row['quotation_id'];
             $this->quotation_number = $row['quotation_number'];
             $this->customer_name = $row['customer_name'];
             $this->customer_email = $row['customer_email'];
             $this->customer_phone = $row['customer_phone'];
-            $this->agency_name = $row['agency_name'] ?? '';
+            $this->agency_name = $row['agency_name'] ?? ''; // Use null coalescing operator
             $this->agency_address = $row['agency_address'] ?? '';
             $this->contact_person = $row['contact_person'] ?? '';
             $this->quotation_date = $row['quotation_date'];
@@ -181,24 +177,20 @@ class Quotation {
             $this->created_at = $row['created_at'];
             $this->updated_at = $row['updated_at'];
 
-            // Get quotation items
+            // Fetch associated items
             $item = new QuotationItem($this->conn);
             $item->quotation_id = $this->quotation_id;
             $this->items = $item->readByQuotationId();
 
             return true;
         }
-
         return false;
     }
 
-    // Update quotation
     public function update() {
         try {
-            // Begin transaction
             $this->conn->beginTransaction();
 
-            // Update query
             $query = "UPDATE " . $this->table_name . "
                     SET
                         customer_name = :customer_name,
@@ -214,10 +206,9 @@ class Quotation {
                     WHERE
                         quotation_id = :quotation_id";
 
-            // Prepare statement
             $stmt = $this->conn->prepare($query);
 
-            // Sanitize data
+            // Sanitize
             $this->customer_name = htmlspecialchars(strip_tags($this->customer_name));
             $this->customer_email = htmlspecialchars(strip_tags($this->customer_email));
             $this->customer_phone = htmlspecialchars(strip_tags($this->customer_phone));
@@ -241,17 +232,20 @@ class Quotation {
             $stmt->bindParam(":notes", $this->notes);
             $stmt->bindParam(":quotation_id", $this->quotation_id);
 
-            // Execute query
             $stmt->execute();
 
-            // Delete existing items
+            // Update items: Delete existing and re-insert
             $item = new QuotationItem($this->conn);
             $item->quotation_id = $this->quotation_id;
-            $item->deleteByQuotationId();
+            if (!$item->deleteByQuotationId()) {
+                 $this->conn->rollBack();
+                 error_log("Failed to delete old items for quotation ID: " . $this->quotation_id);
+                 return false;
+            }
 
-            // Create new items
+
             foreach ($this->items as $quotation_item) {
-                $item->quotation_id = $this->quotation_id;
+                $item->quotation_id = $this->quotation_id; // Ensure correct ID is set
                 $item->item_no = $quotation_item['item_no'];
                 $item->quantity = $quotation_item['quantity'];
                 $item->unit = $quotation_item['unit'];
@@ -260,106 +254,138 @@ class Quotation {
                 $item->markup_percentage = $quotation_item['markup_percentage'];
                 $item->unit_price = $quotation_item['unit_price'];
                 $item->total_amount = $quotation_item['total_amount'];
-                
                 if (!$item->create()) {
-                    // If item creation fails, roll back transaction
                     $this->conn->rollBack();
+                     error_log("Failed to create updated quotation item: " . print_r($item, true));
                     return false;
                 }
             }
 
-            // Commit transaction
             $this->conn->commit();
             return true;
+
         } catch (Exception $e) {
-            // Roll back transaction on error
             $this->conn->rollBack();
-            echo "Error: " . $e->getMessage();
+            error_log("Quotation update error: " . $e->getMessage());
+            echo "Error: " . $e->getMessage(); // Keep for debugging if needed
             return false;
         }
     }
 
-    // Delete quotation
     public function delete() {
-        // Delete query
+        // Note: Related items should be deleted automatically due to ON DELETE CASCADE
         $query = "DELETE FROM " . $this->table_name . " WHERE quotation_id = :quotation_id";
-
-        // Prepare statement
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize
         $this->quotation_id = htmlspecialchars(strip_tags($this->quotation_id));
-
-        // Bind id
         $stmt->bindParam(":quotation_id", $this->quotation_id);
 
-        // Execute query
         if ($stmt->execute()) {
             return true;
         }
-
+        error_log("Failed to delete quotation ID: " . $this->quotation_id);
         return false;
     }
 
-    // Calculate grand total
+    // Calculate Grand Total based on currently loaded items
     public function calculateGrandTotal() {
         $grand_total = 0;
-        
+        // Ensure items are loaded if called on a single instance without prior readOne
+        if (empty($this->items) && $this->quotation_id) {
+             $item = new QuotationItem($this->conn);
+             $item->quotation_id = $this->quotation_id;
+             $this->items = $item->readByQuotationId();
+        }
         foreach ($this->items as $item) {
             $grand_total += floatval($item['total_amount']);
         }
-        
         return $grand_total;
     }
 
-    // Export quotation as CSV
-    public function exportCSV() {
-        // Make sure quotation data is loaded
-        if (!isset($this->customer_name)) {
-            $this->readOne();
+     // NEW: Calculate Net Income based on currently loaded items
+     public function calculateNetIncome() {
+        $grandTotal = $this->calculateGrandTotal(); // Uses total_amount which includes markup
+        $totalOriginalCost = 0;
+
+         // Ensure items are loaded if called on a single instance without prior readOne
+        if (empty($this->items) && $this->quotation_id) {
+             $item = new QuotationItem($this->conn);
+             $item->quotation_id = $this->quotation_id;
+             $this->items = $item->readByQuotationId();
         }
 
-        // File name using quotation number
-        $filename = $this->quotation_number . '_' . date('Y-m-d') . '.csv';
-        
-        // Open output stream
-        $output = fopen('php://output', 'w');
-        
-        // Set headers
+        foreach ($this->items as $item) {
+            // Ensure keys exist before accessing
+            $original_price = isset($item['original_price']) ? floatval($item['original_price']) : 0;
+            $quantity = isset($item['quantity']) ? floatval($item['quantity']) : 0;
+            $totalOriginalCost += $original_price * $quantity;
+        }
+        return $grandTotal - $totalOriginalCost;
+    }
+
+
+    // Export functionality (remains largely the same, uses calculated totals)
+    public function exportCSV() {
+        // Ensure data is loaded if not already
+        if (!isset($this->customer_name)) {
+            if(!$this->readOne()){
+                error_log("Failed to load quotation data for export (ID: {$this->quotation_id}).");
+                return false; // Or handle error appropriately
+            }
+        }
+
+        $filename = ($this->quotation_number ?? 'quotation_'.$this->quotation_id) . '_' . date('Y-m-d') . '.csv';
+
+        // Output headers
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=' . $filename);
-        
-        // Add quotation header information
-        fputcsv($output, [$this->quotation_number]);
+
+        $output = fopen('php://output', 'w');
+        if (!$output) {
+             error_log("Failed to open php://output for CSV export.");
+             return false;
+        }
+
+        // Header rows
+        fputcsv($output, ['Quotation Number:', $this->quotation_number ?? 'QUO-'.str_pad($this->quotation_id, 3, '0', STR_PAD_LEFT)]);
         fputcsv($output, ['Customer:', $this->customer_name]);
-        fputcsv($output, ['Agency:', $this->agency_name]);
+        fputcsv($output, ['Agency:', $this->agency_name ?? 'N/A']);
         fputcsv($output, ['Date:', $this->quotation_date]);
         fputcsv($output, ['Valid Until:', $this->valid_until]);
-        fputcsv($output, []);  // Empty row for spacing
-        
-        // CSV header row
+        fputcsv($output, []); // Blank line
+
+        // Item header
         fputcsv($output, ['Item No', 'Qty', 'Unit', 'Description', 'Original Price', 'Markup (%)', 'Unit Price', 'Total Amount']);
-        
-        // Add data rows
-        foreach ($this->items as $item) {
-            fputcsv($output, [
-                $item['item_no'],
-                $item['quantity'],
-                $item['unit'],
-                $item['description'],
-                $item['original_price'],
-                $item['markup_percentage'],
-                $item['unit_price'],
-                $item['total_amount']
-            ]);
+
+        // Item rows
+        if (!empty($this->items)) {
+            foreach ($this->items as $item) {
+                fputcsv($output, [
+                    $item['item_no'],
+                    $item['quantity'],
+                    $item['unit'],
+                    $item['description'],
+                    number_format(floatval($item['original_price']), 2),
+                    number_format(floatval($item['markup_percentage']), 2),
+                    number_format(floatval($item['unit_price']), 2),
+                    number_format(floatval($item['total_amount']), 2)
+                ]);
+            }
+        } else {
+             fputcsv($output, ['No items found for this quotation.']);
         }
-        
-        // Add grand total row
-        fputcsv($output, ['', '', '', '', '', '', 'Grand Total:', $this->calculateGrandTotal()]);
-        
-        // Close output stream
+
+
+        fputcsv($output, []); // Blank line
+        // Totals
+        $grandTotal = $this->calculateGrandTotal();
+        $netIncome = $this->calculateNetIncome(); // Calculate net income based on loaded items
+        fputcsv($output, ['', '', '', '', '', '', 'Grand Total:', number_format($grandTotal, 2)]);
+        fputcsv($output, ['', '', '', '', '', '', 'Net Income:', number_format($netIncome, 2)]);
+
+
         fclose($output);
-        
         return true;
     }
 }
+?>
