@@ -31,9 +31,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="../delivery/list.php">Delivery Receipts</a>
                     </li>
-                    <!-- New PC Parts Quotation navigation item -->
+                    <!-- PC Builder navigation item -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="../pcbuilder/index.php">PC Builder</a>
+                    </li>
+                    <!-- PC Parts Quotation navigation item -->
                     <li class="nav-item">
                         <a class="nav-link" href="../pcparts/list.php">PC Parts Quotations</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../net.php">Net Calculator</a>
                     </li>
                 </ul>
             </div>

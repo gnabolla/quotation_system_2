@@ -33,10 +33,24 @@ function calculateGovernmentSaleProfit($cost, $markupPercent = null, $sellingPri
         'withholding_tax' => number_format($withholdingTax, 2),
         'cash_received' => number_format($cashReceived, 2),
         'net_profit' => number_format($netProfit, 2),
+        'raw_values' => [
+            'cost' => $cost,
+            'selling_price' => $sellingPrice,
+            'markup_percent' => $markupPercent,
+            'desired_net' => $desiredNet,
+            'desired_net_percent' => $desiredNetPercent
+        ]
     ];
 }
 
+// Initialize variables to store form values
+$cost = '';
+$markupPercent = '';
+$sellingPrice = '';
+$desiredNet = '';
+$desiredNetPercent = '';
 $result = null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cost = isset($_POST['cost']) ? floatval($_POST['cost']) : 0;
     $markupPercent = isset($_POST['markup']) && $_POST['markup'] !== '' ? floatval($_POST['markup']) : null;
@@ -66,22 +80,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h2>Government Sales Profit Calculator</h2>
     <form method="POST">
         <label for="cost">Item Cost (₱):</label>
-        <input type="number" name="cost" id="cost" step="0.01" required>
+        <input type="number" name="cost" id="cost" step="0.01" value="<?= htmlspecialchars($cost) ?>" required>
 
         <label for="markup">Markup Percentage (%):</label>
-        <input type="number" name="markup" id="markup" step="0.01">
+        <input type="number" name="markup" id="markup" step="0.01" value="<?= is_null($markupPercent) ? '' : htmlspecialchars($markupPercent) ?>">
         <small>Leave blank if you want to enter a selling price or desired net profit</small>
 
         <label for="selling_price">Selling Price (₱):</label>
-        <input type="number" name="selling_price" id="selling_price" step="0.01">
+        <input type="number" name="selling_price" id="selling_price" step="0.01" value="<?= is_null($sellingPrice) ? '' : htmlspecialchars($sellingPrice) ?>">
         <small>Leave blank if you're using markup or desired net profit</small>
 
         <label for="desired_net">Desired Net Profit (₱):</label>
-        <input type="number" name="desired_net" id="desired_net" step="0.01">
+        <input type="number" name="desired_net" id="desired_net" step="0.01" value="<?= is_null($desiredNet) ? '' : htmlspecialchars($desiredNet) ?>">
         <small>Enter this only if you want to compute the price needed to hit a specific take-home profit</small>
 
         <label for="desired_net_percent">Desired Net Profit (% of Cost):</label>
-        <input type="number" name="desired_net_percent" id="desired_net_percent" step="0.01">
+        <input type="number" name="desired_net_percent" id="desired_net_percent" step="0.01" value="<?= is_null($desiredNetPercent) ? '' : htmlspecialchars($desiredNetPercent) ?>">
         <small>Automatically calculates based on percentage of cost (e.g. 15%)</small>
 
         <input type="submit" value="Calculate">
